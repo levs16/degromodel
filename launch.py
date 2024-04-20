@@ -1,21 +1,20 @@
-import argparse
+import tensorflow as tf
 from tensorflow.keras.models import load_model
-import numpy as np
 from tensorflow.keras.preprocessing.sequence import pad_sequences
-from tensorflow.keras.preprocessing.text import Tokenizer
-import pickle
+import numpy as np
 
-# Load the model
-model = load_model('degromodel.h5')
+# Load the previously saved model
+model = load_model(input("Input name(with ext.): "))
 
 # Load the tokenizer
+# You need to save and load your tokenizer for consistent preprocessing
+import pickle
 with open('tokenizer.pickle', 'rb') as handle:
     tokenizer = pickle.load(handle)
 
-# Define max_sequence_len
-max_sequence_len = 100  # Assuming this was saved or known from the training phase
-
-def generate_text(seed_text, next_words, model, max_sequence_len):
+# Function to generate text
+def generate_text(seed_text, next_words=3):
+    max_sequence_len = 50  # You should adjust this based on your training data
     for _ in range(next_words):
         token_list = tokenizer.texts_to_sequences([seed_text])[0]
         token_list = pad_sequences([token_list], maxlen=max_sequence_len-1, padding='pre')
@@ -29,12 +28,10 @@ def generate_text(seed_text, next_words, model, max_sequence_len):
         seed_text += " " + output_word
     return seed_text
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Generate text from a trained model.')
-    parser.add_argument('--seed_text', type=str, required=True, help='Initial text to start generation.')
-    parser.add_argument('--next_words', type=int, default=50, help='Number of words to generate.')
-    
-    args = parser.parse_args()
-    
-    generated_text = generate_text(args.seed_text, args.next_words, model, max_sequence_len)
-    print(generated_text)
+# Shell for interacting with the AI
+print("AI Text Generator. Type 'quit' to exit.")
+while True:
+    seed_text = input("Enter seed text: ")
+    if seed_text == 'quit':
+        break
+    print("Generated text:", generate_text(seed_text))

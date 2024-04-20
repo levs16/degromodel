@@ -1,25 +1,23 @@
 import tensorflow as tf
-from tensorflow.keras.preprocessing.sequence import pad_sequences
-from tensorflow.keras.layers import LSTM, Dense, Embedding, Bidirectional
-from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.layers import Embedding, LSTM, Dense
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 import numpy as np
+import pickle
 
-
-# Load the text data from a file
-with open('large_text_file.txt', 'r', encoding='utf-8') as file:
+# Load the text
+with open('large_text_file.txt', 'r') as file:
     text = file.read()
 
-# Tokenization
+# Tokenize the text
 tokenizer = Tokenizer()
-corpus = text.lower().split("\n")
-tokenizer.fit_on_texts(corpus)
+tokenizer.fit_on_texts([text])
 total_words = len(tokenizer.word_index) + 1
 
-# Create input sequences
+# Convert text to sequences of tokens
 input_sequences = []
-for line in corpus:
+for line in text.split('\n'):
     token_list = tokenizer.texts_to_sequences([line])[0]
     for i in range(1, len(token_list)):
         n_gram_sequence = token_list[:i+1]
@@ -29,29 +27,32 @@ for line in corpus:
 max_sequence_len = max([len(x) for x in input_sequences])
 input_sequences = np.array(pad_sequences(input_sequences, maxlen=max_sequence_len, padding='pre'))
 
-
 # Create predictors and label
-xs, labels = input_sequences[:,:-1],input_sequences[:,-1]
-ys = tf.keras.utils.to_categorical(labels, num_classes=total_words)
+X, labels = input_sequences[:,:-1],input_sequences[:,-1]
+Y = tf.keras.utils.to_categorical(labels, num_classes=total_words)
 
-# Model building
-model = Sequential()
-model.add(Embedding(total_words, 100))
-model.add(Bidirectional(LSTM(150)))
-model.add(Dense(total_words, activation='softmax'))
-adam = Adam(learning_rate=0.03)
-model.compile(loss='categorical_crossentropy', optimizer=adam, metrics=['accuracy'])
+# Define the model
+model = Sequential([
+    Embedding(total_words, 64, input_length=max_sequence_len-1),
+    LSTM(100),
+    Dense(total_words, activation='softmax')
+])
 
-# Model summary
-print(model.summary())
+# Compile the model
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 # Train the model
-model.fit(xs, ys, epochs=10, verbose=1)
+model.fit(X, Y, epochs=100, verbose=1)
 
-model.save('degromodel.h5', overwrite=True)
+# Save the model
+model.save('degro-hitler.h5')
 
-# Text generation
-def generate_text(seed_text, next_words, model, max_sequence_len):
+# Save the tokenizer
+with open('tokenizer.pickle', 'wb') as handle:
+    pickle.dump(tokenizer, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+# Function to generate text
+def generate_text(seed_text, next_words=3):
     for _ in range(next_words):
         token_list = tokenizer.texts_to_sequences([seed_text])[0]
         token_list = pad_sequences([token_list], maxlen=max_sequence_len-1, padding='pre')
@@ -65,5 +66,5 @@ def generate_text(seed_text, next_words, model, max_sequence_len):
         seed_text += " " + output_word
     return seed_text
 
-# Generate new text
-print(generate_text("Hello!", 50, model, max_sequence_len))
+# Generate text
+print(generate_text("Once upon a time"))
